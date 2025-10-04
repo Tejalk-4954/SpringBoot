@@ -10,15 +10,23 @@ public class Book {
 
 	@Id
 	private int id;
-	
-	
     private String name;	
-	
-    
     private double price;
-    
-    
     private double ratings;
+
+
+	public Book(int id, String name, double price, double ratings) {
+		super();
+		this.id = id;
+		this.name = name;
+		this.price = price;
+		this.ratings = ratings;
+	}
+
+
+	public Book() {
+		super();
+	}
 
 
 	public int getId() {
@@ -59,6 +67,6 @@ public class Book {
 	public void setRatings(double ratings) {
 		this.ratings = ratings;
 	}
-    
-    
+	
+	
 }
