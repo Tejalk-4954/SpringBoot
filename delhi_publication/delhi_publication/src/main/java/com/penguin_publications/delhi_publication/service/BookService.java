@@ -22,7 +22,9 @@ public class BookService {
 		
 		System.out.println("recieved book"+book.getName());
 		System.out.println("Savinggggg....");
+		
 		Book book_saved=repo.save(book);
+		
 		System.out.println("book Saved....");
 		return book_saved;
 		
