@@ -1,8 +1,10 @@
 package com.penguin_publications.delhi_publication.Entity;
 
-import jakarta.persistence.Column;
+//import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
 
 
 @Entity
@@ -13,6 +15,24 @@ public class Book {
     private String name;	
     private double price;
     private double ratings;
+    
+    
+    @JoinColumn
+    @OneToOne
+    private Author author;
+    
+   
+    
+    
+
+	public Author getAuthor() {
+		return author;
+	}
+
+
+	public void setAuthor(Author author) {
+		this.author = author;
+	}
 
 
 	public Book(int id, String name, double price, double ratings) {
