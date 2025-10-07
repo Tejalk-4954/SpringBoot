@@ -1,7 +1,10 @@
 package com.penguin_publications.delhi_publication.Controllers;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -9,6 +12,7 @@ import com.penguin_publications.delhi_publication.Entity.Book;
 import com.penguin_publications.delhi_publication.service.BookService;
 
 @RestController
+@CrossOrigin(allowedHeaders ="*")
 public class BookController {
 
 	@Autowired
@@ -20,5 +24,17 @@ public class BookController {
 	public Book addbookController(@RequestBody Book book) throws Exception 
 	{
 		return service.addBook(book);
+	}
+	
+	@PutMapping("/update-book")
+	public String updatebook()
+	{
+		return "updated the url....";
+	}
+	
+	@DeleteMapping("/delete-book")
+	public String deleteBook()
+	{
+		return "deleted...";
 	}
 }
