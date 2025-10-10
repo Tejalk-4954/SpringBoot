@@ -25,7 +25,6 @@ public class BookController {
 	private BookService service;
 	
 	
-	
 	@PostMapping("/add-book")
 	public Book addbookController(@RequestBody Book book) throws Exception 
 	{
@@ -33,7 +32,7 @@ public class BookController {
 	}
 	
 	
-	@GetMapping("get-all")
+	@GetMapping("/get-all")
 	public List<Book> getall(){
 		return service.getall();
 	}

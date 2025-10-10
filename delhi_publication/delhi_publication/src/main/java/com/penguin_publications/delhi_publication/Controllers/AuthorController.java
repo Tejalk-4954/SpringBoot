@@ -22,12 +22,14 @@ public class AuthorController {
 		this.service=service;
 	}
 	
+	
 	@PostMapping("/add-author")
 	public Author add(@RequestBody  Author author) throws Exception
 	{
 		 System.out.println(author.getAuthorName());
 		 return service.addAuthor(author);
 	}
+	
 	
 	@GetMapping("/get-all-authors")
 	public List<Author> getall() throws Exception

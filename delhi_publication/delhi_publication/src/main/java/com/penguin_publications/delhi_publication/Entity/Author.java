@@ -1,15 +1,29 @@
 package com.penguin_publications.delhi_publication.Entity;
 
+import java.util.List;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
 
 @Entity
 public class Author {
-
 	
+	
+	public Author() {
+		super();
+	}
+
+	public Author( String authorName, String email) {
+		super();
+		this.authorName = authorName;
+		this.email = email;
+	}
+
 	@Id
 	@GeneratedValue(strategy=GenerationType.IDENTITY)
 	private int authorId;
@@ -19,24 +33,23 @@ public class Author {
 	
 	private String email;
 	
-	public Author()
-	{
-		super();
-	}
-
-	public Author(int authorId, String authorName, String email) {
-		super();
-		this.authorId = authorId;
-		this.authorName = authorName;
-		this.email = email;
-	}
+	
+	@OneToMany
+	@JoinColumn
+	private List<Book> books;
 
 	public int getAuthorId() {
 		return authorId;
 	}
 
-	public void setAuthorId(int authorId) {
+	
+
+	public Author(int authorId, String authorName, String email, List<Book> books) {
+		super();
 		this.authorId = authorId;
+		this.authorName = authorName;
+		this.email = email;
+		this.books = books;
 	}
 
 	public String getAuthorName() {
@@ -54,6 +67,13 @@ public class Author {
 	public void setEmail(String email) {
 		this.email = email;
 	}
-	
-	
+
+	public List<Book> getBooks() {
+		return books;
+	}
+
+	public void setBooks(List<Book> books) {
+		this.books = books;
+	}
+
 }

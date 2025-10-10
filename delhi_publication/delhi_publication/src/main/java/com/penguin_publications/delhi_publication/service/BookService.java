@@ -24,15 +24,19 @@ public class BookService {
 		
 		System.out.println("recieved book"+book.getName());
 		System.out.println("Savinggggg....");
-		
-		Book book_saved=repo.save(book);
+		Book book_saved=new Book();
+		try {
+		 book_saved=repo.save(book);
+		}
+		catch(Exception e)
+		{
+			System.out.println(e.getMessage());
+		}
 		
 		System.out.println("book Saved....");
 		return book_saved;
 		
 	}
-	
-	
 	public List<Book> getall(){
 		
 		return repo.findAll();
