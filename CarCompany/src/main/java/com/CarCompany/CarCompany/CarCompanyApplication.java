@@ -1,14 +1,13 @@
-package com.DTO.DtoDemo;
+package com.CarCompany.CarCompany;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class DtoDemoApplication {
+public class CarCompanyApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(DtoDemoApplication.class, args);
+		SpringApplication.run(CarCompanyApplication.class, args);
 	}
 
-	
 }

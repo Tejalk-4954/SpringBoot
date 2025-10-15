@@ -1,5 +1,7 @@
 package com.DTO.DtoDemo.Controller;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -8,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.DTO.DtoDemo.Entity.Movie;
+import com.DTO.DtoDemo.Repository.MovieRepo;
 import com.DTO.DtoDemo.Service.MovieService;
 
 @RestController
@@ -15,6 +18,10 @@ public class MovieController {
 
 	@Autowired
 	private MovieService service;
+	
+	
+	@Autowired
+	private MovieRepo repo;
 	
 	@PostMapping("/add-movie")
 	public  Movie addmovie(@RequestBody Movie movie)
@@ -28,4 +35,13 @@ public class MovieController {
 		return service.findbypk(id);
 		
 	}
+	
+	
+	@GetMapping("/get-allmovie")
+	public List<Movie>  getallmovie(){
+		return repo.findAll();
+	}
 }
+
+
+

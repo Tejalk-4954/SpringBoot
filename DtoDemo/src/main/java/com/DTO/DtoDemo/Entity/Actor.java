@@ -18,7 +18,8 @@ public class Actor {
 	@GeneratedValue(strategy=GenerationType.IDENTITY)
 	private int Aid;
 	
-	@Column(nullable = false)
+//	@Column(nullable = false)
+	
 	private String Aname;
     private String mobile;
 	
