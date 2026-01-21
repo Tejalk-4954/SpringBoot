@@ -2,6 +2,7 @@ package com.penguin_publications.delhi_publication.service;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.penguin_publications.delhi_publication.Entity.Author;
@@ -10,7 +11,8 @@ import com.penguin_publications.delhi_publication.Repository.AuthorRepo;
 @Service
 public class AuthorService {
     
-	AuthorRepo repo;
+	@Autowired
+	 private AuthorRepo repo;
 	
 	public AuthorService(AuthorRepo repo)
 	{
