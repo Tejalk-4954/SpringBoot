@@ -1,0 +1,346 @@
+package com.company.user_service.service;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.company.user_service.dto.AuthResponse;
+import com.company.user_service.dto.FileUploadRequest;
+import com.company.user_service.dto.FileUploadResponse;
+import com.company.user_service.dto.LoginRequest;
+import com.company.user_service.dto.RegisterRequest;
+import com.company.user_service.dto.UserDto;
+import com.company.user_service.entity.Department;
+import com.company.user_service.entity.FileMetadata;
+import com.company.user_service.entity.Role;
+import com.company.user_service.entity.User;
+import com.company.user_service.entity.UserRole;
+import com.company.user_service.minio.MinioUtil;
+import com.company.user_service.outbox.EventOutboxService;
+import com.company.user_service.repo.FileMetadataRepository;
+import com.company.user_service.repo.RoleRepository;
+import com.company.user_service.repo.UserRepository;
+import com.company.user_service.repo.UserRoleRepository;
+import com.company.user_service.security.JwtUtil;
+
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.NotFoundException;
+
+@Service
+public class UserServiceImpl implements UserService {
+
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final UserRoleRepository userRoleRepository;
+    private final FileMetadataRepository fileMetadataRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
+    private final MinioUtil minioUtil;
+    private final EventOutboxService eventOutboxService;
+    private final AuthenticationManager authenticationManager;
+
+    @Value("${security.jwt.expiration-ms:3600000}")
+    private long jwtExpiryMs;
+
+    public UserServiceImpl(UserRepository userRepository,
+                           RoleRepository roleRepository,
+                           UserRoleRepository userRoleRepository,
+                           FileMetadataRepository fileMetadataRepository,
+                           PasswordEncoder passwordEncoder,
+                           JwtUtil jwtUtil,
+                           MinioUtil minioUtil,
+                           EventOutboxService eventOutboxService,
+                           AuthenticationManager authenticationManager) {
+        this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
+        this.userRoleRepository = userRoleRepository;
+        this.fileMetadataRepository = fileMetadataRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtUtil = jwtUtil;
+        this.minioUtil = minioUtil;
+        this.eventOutboxService = eventOutboxService;
+        this.authenticationManager = authenticationManager;
+    }
+
+    @Override
+    @Transactional
+    public UserDto register(RegisterRequest request) {
+        // 1) Email uniqueness
+        userRepository.findByEmail(request.getEmail()).ifPresent(u -> {
+            throw new BadRequestException("Email already in use");
+        });
+
+        // 2) Validate department using enum
+//        Department deptEnum = Department.from(request.getDepartment());
+//        if (deptEnum == null) {
+//            throw new BadRequestException(
+//                    "Invalid department. Allowed values: IT, FINANCE, HR, ITS"
+//            );
+//        }
+
+        // 3) Create user
+        User u = new User();
+        u.setId(UUID.randomUUID().toString());
+        u.setFullName(request.getFullName());
+        u.setEmail(request.getEmail());
+        u.setPassword(passwordEncoder.encode(request.getPassword()));
+        u.setStatus("ACTIVE");
+//        u.setDepartment(deptEnum.name());
+        u.setCreatedAt(Instant.now());
+
+        userRepository.save(u);
+
+        // 4) Assign roles:
+        //    - First user ever  -> ADMIN + EMPLOYEE
+        //    - Others          -> EMPLOYEE
+        long userCount = userRepository.count();
+
+        if (userCount == 1) {
+            // first user => ADMIN + EMPLOYEE
+            assignRoleInternal(u.getId(), "ADMIN");
+            assignRoleInternal(u.getId(), "EMPLOYEE");
+        } else {
+            // normal user => EMPLOYEE
+            assignRoleInternal(u.getId(), "EMPLOYEE");
+        }
+
+        return toDto(u);
+    }
+
+    @Override
+    public AuthResponse login(LoginRequest request) {
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+            );
+
+            org.springframework.security.core.userdetails.User principal =
+                    (org.springframework.security.core.userdetails.User) authentication.getPrincipal();
+
+            String token = jwtUtil.generateToken(principal);
+
+            return new AuthResponse(token, jwtExpiryMs);
+
+        } catch (org.springframework.security.core.AuthenticationException ex) {
+            throw new RuntimeException("Invalid email or password");
+        }
+    }
+
+    @Override
+    public UserDto getById(String id) {
+        User u = userRepository.findById(id).orElseThrow(() -> new NotFoundException("User not found"));
+        return toDto(u);
+    }
+
+    @Override
+    public List<UserDto> listAll(int page, int size) {
+        Page<User> p = userRepository.findAll(PageRequest.of(page, size));
+        return p.getContent()
+                .stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void assignRole(String userId, String roleName) {
+        // public API used by controllers (Admin assigning roles)
+        assignRoleInternal(userId, roleName);
+    }
+
+    /**
+     * Internal helper that enforces all rules for role assignment.
+     * roleName is expected as plain: "ADMIN", "EMPLOYEE", "MANAGER", "HR_HEAD", "ITS_HEAD"
+     */
+//    private void assignRoleInternal(String userId, String roleName) {
+//        User user = userRepository.findById(userId)
+//                .orElseThrow(() -> new NotFoundException("User not found"));
+//
+//        Role role = roleRepository.findByName(roleName);
+//        if (role == null) {
+//            throw new NotFoundException("Role not found: " + roleName);
+//        }
+//
+//        // Department-head roles must have a department
+//        if (roleName.equals("MANAGER") || roleName.equals("HR_HEAD") || roleName.equals("ITS_HEAD")) {
+//            if (user.getDepartment() == null || user.getDepartment().isBlank()) {
+//                throw new BadRequestException("User must have a department before assigning department-head role");
+//            }
+//            // Optional: enforce one head per department (commented out)
+//            // List<User> existingHeads = userRepository.findDepartmentHeads()
+//            //         .stream()
+//            //         .filter(u2 -> user.getDepartment().equalsIgnoreCase(u2.getDepartment()))
+//            //         .collect(Collectors.toList());
+//            // if (!existingHeads.isEmpty()) {
+//            //     throw new BadRequestException("Department already has a head: " + existingHeads.get(0).getEmail());
+//            // }
+//        }
+//
+//        // Avoid duplicate assignment
+//        List<Role> currentRoles = roleRepository.findRolesByUserId(userId);
+//        boolean already = currentRoles.stream().anyMatch(r -> r.getName().equals(roleName));
+//        if (already) return;
+//
+//        UserRole ur = new UserRole();
+//        ur.setUserId(userId);
+//        ur.setRoleId(role.getId());
+//        userRoleRepository.save(ur);
+//    }
+    
+    private void assignRoleInternal(String userId, String roleName) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("User not found"));
+
+        Role role = roleRepository.findByName(roleName);
+        if (role == null) {
+            throw new NotFoundException("Role not found: " + roleName);
+        }
+
+        // Department-head roles must have a department
+        if (roleName.equals("MANAGER") || roleName.equals("HR_HEAD") || roleName.equals("ITS_HEAD")) {
+            if (user.getDepartment() == null || user.getDepartment().isBlank()) {
+                throw new BadRequestException("User must have a department before assigning department-head role");
+            }
+        }
+
+        // Remove any existing role(s) of this user
+        List<UserRole> existingRoles = userRoleRepository.findByUserId(userId);
+        if (!existingRoles.isEmpty()) {
+            userRoleRepository.deleteAll(existingRoles); // remove all previous roles
+        }
+
+        // Assign the new role
+        UserRole ur = new UserRole();
+        ur.setUserId(userId);
+        ur.setRoleId(role.getId());
+        userRoleRepository.save(ur);
+    }
+
+
+    @Override
+    @Transactional
+    public FileUploadResponse presignUpload(FileUploadRequest req) {
+        FileMetadata fm = new FileMetadata();
+        fm.setFileName(req.getFileName());
+        String objectKey = String.format(
+                "%s/%s/%s_%s",
+                req.getOwnerType().toLowerCase(),
+                req.getOwnerId(),
+                UUID.randomUUID().toString(),
+                req.getFileName()
+        );
+        fm.setObjectKey(objectKey);
+        fm.setMimeType(req.getMimeType());
+        fm.setUploadedBy(req.getOwnerId());
+        fm.setSize(null);
+        fileMetadataRepository.save(fm);
+
+        String uploadUrl = minioUtil.presignedPutObject(objectKey, 60 * 5);
+        return new FileUploadResponse(fm.getId(), objectKey, uploadUrl);
+    }
+
+    @Override
+    @Transactional
+    public void confirmUpload(String fileId) {
+        FileMetadata fm = fileMetadataRepository.findById(fileId)
+                .orElseThrow(() -> new NotFoundException("File metadata not found"));
+        boolean exists = minioUtil.objectExists(fm.getObjectKey());
+        if (!exists) throw new BadRequestException("Object not found on MinIO");
+
+        fm.setUploadedAt(Instant.now());
+        fileMetadataRepository.save(fm);
+
+        try {
+            User user = userRepository.findById(fm.getUploadedBy()).orElse(null);
+            if (user != null) {
+                user.setProfileFileId(fm.getId());
+                userRepository.save(user);
+            }
+        } catch (Exception ex) {
+            // swallow & log if needed
+        }
+
+        Map<String, Object> payload = Map.of(
+                "fileId", fm.getId(),
+                "objectKey", fm.getObjectKey()
+        );
+        eventOutboxService.enqueue("FILE_UPLOADED", payload, fm.getId());
+    }
+
+    private UserDto toDto(User u) {
+        UserDto dto = new UserDto();
+        dto.setId(u.getId());
+        dto.setFullName(u.getFullName());
+        dto.setEmail(u.getEmail());
+        dto.setProfileFileId(u.getProfileFileId());
+        dto.setDepartment(u.getDepartment());
+
+        List<Role> roles = roleRepository.findRolesByUserId(u.getId());
+        dto.setRoles(roles == null
+                ? List.of()
+                : roles.stream().map(Role::getName).collect(Collectors.toList()));
+
+        return dto;
+    }
+
+    @Override
+    public UserDto getUserByEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new NotFoundException("User not found: " + email));
+        return toDto(user);
+    }
+
+    @Override
+    public List<UserDto> getEmployeesUnderHead(String headId) {
+        User head = userRepository.findById(headId)
+                .orElseThrow(() -> new NotFoundException("Head not found"));
+
+        String dept = head.getDepartment();
+        if (dept == null) throw new BadRequestException("Head has no department");
+
+        List<User> employees = userRepository.findEmployeesByDepartment(dept);
+        return employees.stream().map(this::toDto).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<UserDto> getEmployeesByDepartment(String department) {
+        List<User> users = userRepository.findByDepartment(department.toUpperCase());
+        return users.stream().map(this::toDto).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<UserDto> getDepartmentHeads() {
+        List<User> heads = userRepository.findDepartmentHeads();
+        return heads.stream().map(this::toDto).collect(Collectors.toList());
+    }
+
+    public void updateDepartment(String userId, String department) {
+
+        int updatedRows = userRepository.updateDepartment(userId, department);
+
+        if (updatedRows == 0) {
+            throw new RuntimeException("User not found or department not updated.");
+        }
+    }
+
+	@Override
+	public String getDepartmentByUserId(String username) {
+		String dept = userRepository.findDepartmentByUserId(username);
+        if (dept == null) {
+            throw new RuntimeException("User not found or department not set");
+        }
+        return dept;
+	}
+}

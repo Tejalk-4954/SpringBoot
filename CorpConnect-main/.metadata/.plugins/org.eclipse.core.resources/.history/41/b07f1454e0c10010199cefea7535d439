@@ -1,0 +1,13 @@
+package com.company.user_service.service;
+
+package com.company.user_service.service;
+
+import org.springframework.stereotype.Service;
+
+@Service
+public class SmsService {
+    public void sendOtpSms(String phone, String otp) {
+        // Integrate with Twilio or other provider in production
+        System.out.println("Sending OTP " + otp + " to phone " + phone);
+    }
+}

@@ -1,0 +1,112 @@
+package com.company.user_service.service;
+
+
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.company.user_service.dto.AuthResponse;
+import com.company.user_service.dto.LoginRequest;
+import com.company.user_service.entity.Role;
+import com.company.user_service.entity.User;
+import com.company.user_service.repo.RoleRepository;
+import com.company.user_service.repo.UserRepository;
+import com.company.user_service.security.JwtUtil;
+
+@Service
+public class CandidateService {
+
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final OtpService otpService;
+    private final EmailService emailService;
+    private final SmsService smsService;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
+
+    public CandidateService(UserRepository userRepository,
+                            RoleRepository roleRepository,
+                            OtpService otpService,
+                            EmailService emailService,
+                            SmsService smsService,PasswordEncoder passwordEncoder,JwtUtil jwtUtil) {
+        this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
+        this.otpService = otpService;
+        this.emailService = emailService;
+        this.smsService = smsService;
+        this.passwordEncoder=passwordEncoder;
+        this.jwtUtil=jwtUtil;
+    }
+
+    @Transactional
+    public void registerCandidate(String fullName, String email, String phone, String password,
+                                  String enteredEmailOtp, String enteredPhoneOtp) {
+
+        // Verify OTPs
+        if (!otpService.verifyOtp(email, enteredEmailOtp)) {
+            throw new RuntimeException("Invalid Email OTP");
+        }
+        if (!otpService.verifyOtp(phone, enteredPhoneOtp)) {
+            throw new RuntimeException("Invalid Phone OTP");
+        }
+
+        // Clear OTPs after successful verification
+        otpService.clearOtp(email);
+        otpService.clearOtp(phone);
+
+        // Assign role
+        Role candidateRole = roleRepository.findByName("CANDIDATE");
+        if (candidateRole == null) {
+            throw new RuntimeException("Role CANDIDATE not found");
+        }
+
+        // Create user
+        User user = new User();
+        user.setFullName(fullName);
+        user.setEmail(email);
+        user.setPhone(phone);
+        user.setPassword(password);
+        user.setEmailVerified(true);
+        user.setPhoneNoVerified(true);
+        user.setStatus("ACTIVE");
+       // user.setRoles(candidateRole.getId()); // assuming roles column stores role id
+
+        userRepository.save(user);
+    }
+
+    // Trigger OTP sending before registration
+    public void sendOtps(String email, String phone) {
+        String emailOtp = otpService.generateOtp(email);
+        emailService.sendOtpEmail(email, emailOtp);
+
+        String phoneOtp = otpService.generateOtp(phone);
+        smsService.sendOtpSms(phone, phoneOtp);
+    }
+    
+    public AuthResponse login(LoginRequest request) {
+        com.company.user_service.entity.User userEntity = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!passwordEncoder.matches(request.getPassword(), userEntity.getPassword())) {
+            throw new RuntimeException("Invalid credentials");
+        }
+
+        // Build UserDetails for JWT
+        UserDetails userDetails = org.springframework.security.core.userdetails.User
+                .withUsername(userEntity.getEmail())
+                .password(userEntity.getPassword())
+                .roles("CANDIDATE") // ideally load from DB
+                .build();
+
+        // Generate JWT access token
+        String accessToken = jwtUtil.generateToken(userDetails);
+
+        // For now, you can skip refreshToken or generate another JWT with longer expiry
+        String refreshToken = null;
+
+        // Return AuthResponse
+        return new AuthResponse(accessToken, refreshToken, "Bearer");
+    }
+
+}

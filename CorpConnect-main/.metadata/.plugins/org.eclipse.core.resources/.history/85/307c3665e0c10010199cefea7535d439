@@ -1,0 +1,5 @@
+package com.company.user_service.dto;
+
+public class CandidateRegiaterRequest {
+
+}

@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: user-service
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/user_service_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+    username: Admin
+    password: Admin@123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+server:
+  port: 8082
+
+security:
+  jwt:
+    secret: mySuperSecretKey_Proper_32CharactersLong!!!
+    expiration-ms: 3600000
+
+minio:
+  endpoint: http://localhost:9000
+  access-key: minio-access-key
+  secret-key: minio-secret-key
+  bucket: company-files
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: false
+    fetch-registry: false
+
+outbox:
+  publish:
+    interval-ms: 5000
+
+logging:
+  level:
+    root: INFO
+    com.company: DEBUG
+
+
+    spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=healthcare5747@gmail.com
+spring.mail.password=cvwfhbgtrfwgkkqs
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true

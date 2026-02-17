@@ -1,0 +1,23 @@
+package com.company.user_service.entity;
+
+import java.io.Serializable;
+
+import jakarta.persistence.Entity;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode
+@Entity
+public class UserRoleId implements Serializable {
+    private String userId;
+    private String roleId;
+    
+    
+}

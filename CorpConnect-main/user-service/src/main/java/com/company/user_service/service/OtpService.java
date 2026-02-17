@@ -1,0 +1,31 @@
+package com.company.user_service.service;
+
+
+
+
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
+
+import org.springframework.stereotype.Service;
+
+@Service
+public class OtpService {
+
+    private final Map<String, String> otpStore = new HashMap<>();
+
+    public String generateOtp(String key) {
+        String otp = String.format("%06d", new Random().nextInt(999999));
+        otpStore.put(key, otp);
+        return otp;
+    }
+
+    public boolean verifyOtp(String key, String otp) {
+        return otpStore.containsKey(key) && otpStore.get(key).equals(otp);
+    }
+
+    public void clearOtp(String key) {
+        otpStore.remove(key);
+    }
+}

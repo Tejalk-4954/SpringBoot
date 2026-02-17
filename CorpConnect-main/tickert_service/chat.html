@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ticket Chat Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+</head>
+<body>
+<h2>Ticket Chat – Two Users</h2>
+
+<label>WebSocket URL (with token):</label><br>
+<input id="wsUrl" size="100"
+       value="http://localhost:8090/ws?token=PASTE_JWT_HERE" />
+<br><br>
+
+<label>Ticket ID:</label><br>
+<input id="ticketId" value="TICK-TEST-123" />
+<br><br>
+
+<button onclick="connect()">Connect</button>
+<button onclick="disconnect()">Disconnect</button>
+
+<hr>
+
+<div id="status" style="margin-bottom:10px;color:green;"></div>
+
+<h3>Messages</h3>
+<div id="messages" style="border:1px solid #ccc; height:200px; overflow:auto; padding:4px;"></div>
+
+<input id="chatMessage" placeholder="Type message..." size="60" />
+<button onclick="sendMessage()">Send</button>
+
+<script>
+  let stompClient = null;
+  let subscription = null;
+
+  function log(msg) {
+    const div = document.getElementById("messages");
+    div.innerHTML += msg + "<br/>";
+    div.scrollTop = div.scrollHeight;
+  }
+
+  function connect() {
+    const wsUrl = document.getElementById("wsUrl").value;
+    const ticketId = document.getElementById("ticketId").value;
+
+    const socket = new SockJS(wsUrl);
+    stompClient = Stomp.over(socket);
+    stompClient.debug = null; // disable noisy logs
+
+    stompClient.connect(
+      {}, // headers (token is in URL)
+      frame => {
+        document.getElementById("status").innerText = "Connected: " + frame.command;
+
+        subscription = stompClient.subscribe(
+          "/topic/tickets/" + ticketId,
+          message => {
+            const body = JSON.parse(message.body);
+            log("<b>" + body.senderId + "</b>: " + body.message +
+                " <small>(" + body.createdAt + ")</small>");
+          }
+        );
+      },
+      error => {
+        document.getElementById("status").innerText = "ERROR: " + error;
+      }
+    );
+  }
+
+  function disconnect() {
+    if (subscription) {
+      subscription.unsubscribe();
+      subscription = null;
+    }
+    if (stompClient) {
+      stompClient.disconnect();
+      stompClient = null;
+    }
+    document.getElementById("status").innerText = "Disconnected";
+  }
+
+  function sendMessage() {
+    const ticketId = document.getElementById("ticketId").value;
+    const msgText = document.getElementById("chatMessage").value;
+
+    if (!stompClient || !stompClient.connected) {
+      alert("Not connected!");
+      return;
+    }
+
+    const payload = {
+      // senderId is optional – backend will use JWT subject if missing
+      message: msgText,
+      internal: false,
+      attachments: []
+    };
+
+    stompClient.send(
+      "/app/chat.send." + ticketId,
+      {},
+      JSON.stringify(payload)
+    );
+
+    document.getElementById("chatMessage").value = "";
+  }
+</script>
+</body>
+</html>

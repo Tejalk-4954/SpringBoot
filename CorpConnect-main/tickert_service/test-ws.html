@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ticket WebSocket Test</title>
+</head>
+<body>
+<h2>Ticket WebSocket Test</h2>
+
+<div>
+    <label>Ticket ID:
+        <input id="ticketId" type="text" value="TEST-123">
+    </label>
+</div>
+<div>
+    <label>Sender ID:
+        <input id="senderId" type="text" value="manual-tester">
+    </label>
+</div>
+<div>
+    <label>Message:
+        <input id="message" type="text" value="Hello from HTML client!">
+    </label>
+</div>
+
+<button onclick="connect()">1. Connect</button>
+<button onclick="disconnect()">2. Disconnect</button>
+<button onclick="sendMessage()">3. Send Message</button>
+
+<pre id="log" style="border:1px solid #ccc; padding:10px; margin-top:10px; height:300px; overflow:auto;"></pre>
+
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+<script>
+    let stompClient = null;
+
+    function log(msg) {
+        const logEl = document.getElementById('log');
+        logEl.textContent += msg + "\n";
+        logEl.scrollTop = logEl.scrollHeight;
+        console.log(msg);
+    }
+
+    function connect() {
+        const ticketId = document.getElementById('ticketId').value;
+
+        // 🔴 This must match server.port and endpoint in WebSocketConfig
+        const socket = new SockJS('http://localhost:8090/ws');
+
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null; // set to console.log to see full STOMP logs
+
+        stompClient.connect(
+            {}, // no headers for now (anonymous allowed)
+            function (frame) {
+                log("Connected: " + frame);
+
+                const dest = '/topic/tickets/' + ticketId;
+                log('Subscribing to ' + dest);
+
+                stompClient.subscribe(dest, function (message) {
+                    log("Received: " + message.body);
+                });
+            },
+            function (error) {
+                log("STOMP error: " + error);
+            }
+        );
+    }
+
+    function sendMessage() {
+        if (!stompClient || !stompClient.connected) {
+            log("Not connected");
+            return;
+        }
+
+        const ticketId = document.getElementById('ticketId').value;
+        const senderId = document.getElementById('senderId').value;
+        const text = document.getElementById('message').value;
+
+        const destination = '/app/chat.send.' + ticketId;
+
+        const payload = {
+            senderId: senderId,      // important: your controller needs this if principal is null
+            message: text,
+            internal: false,
+            attachments: []
+        };
+
+        log("Sending to " + destination + ": " + JSON.stringify(payload));
+        stompClient.send(destination, {}, JSON.stringify(payload));
+    }
+
+    function disconnect() {
+        if (stompClient !== null) {
+            stompClient.disconnect(function () {
+                log("Disconnected");
+            });
+        }
+    }
+</script>
+</body>
+</html>

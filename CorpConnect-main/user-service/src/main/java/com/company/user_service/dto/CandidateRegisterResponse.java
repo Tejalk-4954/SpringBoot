@@ -1,0 +1,30 @@
+package com.company.user_service.dto;
+
+
+
+public class CandidateRegisterResponse {
+    private String candidateId;
+    private String fullName;
+    private String email;
+    private String phoneNo;
+
+    public CandidateRegisterResponse(String candidateId, String fullName, String email, String phoneNo) {
+        this.candidateId = candidateId;
+        this.fullName = fullName;
+        this.email = email;
+        this.phoneNo = phoneNo;
+    }
+
+    // Getters & setters
+    public String getCandidateId() { return candidateId; }
+    public void setCandidateId(String candidateId) { this.candidateId = candidateId; }
+
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public String getPhoneNo() { return phoneNo; }
+    public void setPhoneNo(String phoneNo) { this.phoneNo = phoneNo; }
+}

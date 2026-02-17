@@ -1,0 +1,8 @@
+package com.example.demo;
+
+import com.amazonaws.services.lambda.runtime.RequestHandler;
+
+
+public class HelloHandler implements RequestHandler<String, String>{
+
+}

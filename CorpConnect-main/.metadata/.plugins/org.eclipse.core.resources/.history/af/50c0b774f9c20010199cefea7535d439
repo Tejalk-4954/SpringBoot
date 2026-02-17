@@ -1,0 +1,172 @@
+//package com.company.hiring_service.security;
+//
+//import jakarta.servlet.FilterChain;
+//import jakarta.servlet.ServletException;
+//import jakarta.servlet.http.HttpServletRequest;
+//import jakarta.servlet.http.HttpServletResponse;
+//import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+//import org.springframework.security.core.authority.SimpleGrantedAuthority;
+//import org.springframework.security.core.context.SecurityContextHolder;
+//import org.springframework.stereotype.Component;
+//import org.springframework.web.filter.OncePerRequestFilter;
+//
+//import java.io.IOException;
+//import java.util.List;
+//
+//@Component
+//public class JwtAuthenticationFilter extends OncePerRequestFilter {
+//
+//    private final JwtUtil jwtUtil;
+//    private final UserClient userClient;
+//
+//    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserClient userClient) {
+//        this.jwtUtil = jwtUtil;
+//        this.userClient = userClient;
+//    }
+//
+//    @Override
+//    protected void doFilterInternal(HttpServletRequest req,
+//                                    HttpServletResponse resp,
+//                                    FilterChain chain)
+//            throws ServletException, IOException {
+//
+//        String path = req.getRequestURI();
+//
+//        // Public endpoints – skip JWT processing
+//        if (path.contains("/public") || path.startsWith("/actuator") || path.startsWith("/error")) {
+//            chain.doFilter(req, resp);
+//            return;
+//        }
+//
+//        String header = req.getHeader("Authorization");
+//        if (header == null || !header.startsWith("Bearer ")) {
+//            chain.doFilter(req, resp);
+//            return;
+//        }
+//
+//        String token = header.substring(7);
+//
+//        try {
+//            String email = jwtUtil.getUsername(token);
+//            List<String> rolesFromJwt = jwtUtil.getRoles(token);
+//
+//            var userFromService = userClient.getByEmail(email, token);
+//
+//            List<SimpleGrantedAuthority> authorities =
+//                    userFromService
+//                            .map(u -> u.getRoles().stream()
+//                                    .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
+//                                    .toList())
+//                            .orElse(rolesFromJwt.stream()
+//                                    .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
+//                                    .toList());
+//
+//            UsernamePasswordAuthenticationToken auth =
+//                    new UsernamePasswordAuthenticationToken(email, null, authorities);
+//
+//            SecurityContextHolder.getContext().setAuthentication(auth);
+//
+//        } catch (Exception ex) {
+//            System.out.println("❌ JWT Auth Error: " + ex.getMessage());
+//        }
+//
+//        chain.doFilter(req, resp);
+//    }
+//}
+
+
+
+package com.company.hiring_service.security;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.List;
+
+@Component
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private final JwtUtil jwtUtil;
+    private final UserClient userClient;
+
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserClient userClient) {
+        this.jwtUtil = jwtUtil;
+        this.userClient = userClient;
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest req,
+                                    HttpServletResponse resp,
+                                    FilterChain chain)
+            throws ServletException, IOException {
+
+        String path = req.getRequestURI();
+
+        // Skip public endpoints
+        if (path.contains("/public") || path.startsWith("/actuator") || path.startsWith("/error")) {
+            chain.doFilter(req, resp);
+            return;
+        }
+
+        String header = req.getHeader("Authorization");
+        if (header == null || !header.startsWith("Bearer ")) {
+            chain.doFilter(req, resp);
+            return;
+        }
+
+        String token = header.substring(7);
+
+        try {
+            String email = jwtUtil.getUsername(token);
+            List<String> rolesFromJwt = jwtUtil.getRoles(token);
+
+            // Fetch roles from user service if available
+            List<SimpleGrantedAuthority> authorities = userClient.getByEmail(email, token)
+                    .map(u -> u.getRoles().stream()
+                            .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
+                            .toList())
+                    // Assign default role CANDIDATE if no roles found
+                    .orElseGet(() -> {
+                        if (rolesFromJwt.isEmpty()) {
+                            return List.of(new SimpleGrantedAuthority("ROLE_CANDIDATE"));
+                        } else {
+                            return rolesFromJwt.stream()
+                                    .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
+                                    .toList();
+                        }
+                    });
+
+            // Build UserDetails with authorities
+            UserDetails userDetails = User.builder()
+                    .username(email)
+                    .password("") // password not needed for JWT
+                    .authorities(authorities)
+                    .build();
+
+            // Set authentication in SecurityContext
+            UsernamePasswordAuthenticationToken auth =
+                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
+            // Debug logs
+            System.out.println("✅ Authenticated user: " + email);
+            System.out.println("✅ Authorities: " + authorities);
+
+        } catch (Exception ex) {
+            System.out.println("❌ JWT Auth Error: " + ex.getMessage());
+        }
+
+        chain.doFilter(req, resp);
+    }
+}
