@@ -20,3 +20,10 @@ public class TickertServiceApplication {
 		return new RestTemplate();
 	}
 }
+
+
+//set MINIO_ROOT_USER=minio-access-key
+//set MINIO_ROOT_PASSWORD=minio-secret-key
+//minio.exe server data --console-address ":9001"
+
+//bin\windows\kafka-server-start.bat config\server.properties

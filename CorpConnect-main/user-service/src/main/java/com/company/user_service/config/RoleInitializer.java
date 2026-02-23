@@ -25,15 +25,16 @@ public class RoleInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        List<String> requiredRoles = Arrays.asList(
-                "ADMIN",
-                "EMPLOYEE",
-                "MANAGER",
-                "HR_HEAD",
-                "ITS_HEAD",
-                "FINANCE_HEAD",
-                "IT_HEAD"
-        );
+    	List<String> requiredRoles = Arrays.asList(
+    	        "ADMIN",
+    	        "EMPLOYEE",
+    	        "MANAGER",
+    	        "HR_HEAD",
+    	        "ITS_HEAD",
+    	        "FINANCE_HEAD",
+    	        "IT_HEAD",
+    	        "CANDIDATE"   // 👈 ADD THIS
+    	);
 
         for (String roleName : requiredRoles) {
             Role existing = roleRepository.findByName(roleName);
